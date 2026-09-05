@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Movie Recommendation System
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}"
+    >
+
+</head>
+
+
+<body>
+
+
+<!-- HEADER -->
+
+<header>
+
+    <div class="logo">
+
+        🎬 MOVIE RECOMMENDATION SYSTEM
+
+    </div>
+
+
+    <button
+        id="homeButton"
+        class="home-button"
+    >
+
+        HOME
+
+    </button>
+
+</header>
+
+
+
+<!-- MAIN -->
+
+<main>
+
+
+    <!-- SEARCH -->
+
+    <section class="search-section">
+
+        <input
+            id="searchInput"
+            type="text"
+            placeholder="Enter movie name..."
+        >
+
+
+        <button
+            id="searchButton"
+        >
+
+            🔍 SEARCH
+
+        </button>
+
+    </section>
+
+
+
+    <!-- STATUS -->
+
+    <div
+        id="status"
+        class="status"
+    >
+
+        Search for a movie
+        to get recommendations.
+
+    </div>
+
+
+
+    <!-- MOVIE RESULTS -->
+
+    <section
+        id="results"
+        class="results"
+    >
+
+    </section>
+
+
+</main>
+
+
+
+<!-- FOOTER -->
+
+<footer>
+
+    Powered by TMDB API
+    •
+    Movie Recommendation System
+
+</footer>
+
+
+
+<script>
+
+
+const searchInput =
+    document.getElementById(
+        "searchInput"
+    );
+
+
+const searchButton =
+    document.getElementById(
+        "searchButton"
+    );
+
+
+const homeButton =
+    document.getElementById(
+        "homeButton"
+    );
+
+
+const results =
+    document.getElementById(
+        "results"
+    );
+
+
+const status =
+    document.getElementById(
+        "status"
+    );
+
+
+
+/* ---------------------------------
+   SECURITY
+---------------------------------- */
+
+function escapeHTML(value) {
+
+    return String(value ?? "")
+
+        .replaceAll(
+            "&",
+            "&amp;"
+        )
+
+        .replaceAll(
+            "<",
+            "&lt;"
+        )
+
+        .replaceAll(
+            ">",
+            "&gt;"
+        )
+
+        .replaceAll(
+            '"',
+            "&quot;"
+        )
+
+        .replaceAll(
+            "'",
+            "&#039;"
+        );
+}
+
+
+
+/* ---------------------------------
+   MOVIE CARD
+---------------------------------- */
+
+function createMovieCard(
+    movie,
+    recommendation = false
+) {
+
+    let poster;
+
+
+    if (movie.poster) {
+
+        poster = `
+
+            <img
+                src="${movie.poster}"
+                alt="${escapeHTML(movie.title)}"
+            >
+
+        `;
+
+    } else {
+
+        poster = `
+
+            <div class="no-poster">
+
+                No Poster
+
+            </div>
+
+        `;
+
+    }
+
+
+
+    let recommendationButton = "";
+
+
+    if (!recommendation) {
+
+        recommendationButton = `
+
+            <button
+                class="recommend-button"
+                data-id="${movie.id}"
+            >
+
+                🎯 Get Recommendations
+
+            </button>
+
+        `;
+
+    }
+
+
+
+    return `
+
+        <article class="movie-card">
+
+
+            <div class="poster">
+
+                ${poster}
+
+            </div>
+
+
+
+            <div class="movie-info">
+
+
+                <h2>
+
+                    ${escapeHTML(
+                        movie.title
+                    )}
+
+                </h2>
+
+
+
+                <div class="movie-details">
+
+                    Release Year:
+
+                    ${escapeHTML(
+                        (movie.release_date || "Unknown")
+                        .slice(0, 4)
+                    )}
+
+                    &nbsp;&nbsp;
+
+                    ⭐ Rating:
+
+                    ${Number(
+                        movie.rating
+                    ).toFixed(1)}
+
+                    /10
+
+                </div>
+
+
+
+                <p>
+
+                    ${escapeHTML(
+                        movie.overview
+                    )}
+
+                </p>
+
+
+
+                ${recommendationButton}
+
+
+            </div>
+
+
+        </article>
+
+    `;
+}
+
+
+
+/* ---------------------------------
+   DISPLAY MOVIES
+---------------------------------- */
+
+function displayMovies(
+    movies,
+    recommendation = false
+) {
+
+    if (!movies.length) {
+
+        status.textContent =
+            "No movies found.";
+
+        results.innerHTML = "";
+
+        return;
+
+    }
+
+
+    results.innerHTML =
+        movies
+            .map(
+                movie =>
+                    createMovieCard(
+                        movie,
+                        recommendation
+                    )
+            )
+            .join("");
+
+}
+
+
+
+/* ---------------------------------
+   SEARCH
+---------------------------------- */
+
+async function searchMovies() {
+
+    const movieName =
+        searchInput.value.trim();
+
+
+    if (!movieName) {
+
+        status.textContent =
+            "Please enter a movie name.";
+
+        return;
+
+    }
+
+
+    searchButton.disabled = true;
+
+
+    status.textContent =
+        "Searching movies...";
+
+
+    results.innerHTML = "";
+
+
+    try {
+
+        const response =
+            await fetch(
+                "/api/search?q=" +
+                encodeURIComponent(
+                    movieName
+                )
+            );
+
+
+        const data =
+            await response.json();
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                data.error
+            );
+
+        }
+
+
+        status.textContent =
+            `Found ${data.movies.length} movies`;
+
+
+        displayMovies(
+            data.movies
+        );
+
+
+    } catch (error) {
+
+        status.textContent =
+            error.message;
+
+    }
+
+
+    searchButton.disabled = false;
+
+}
+
+
+
+/* ---------------------------------
+   RECOMMENDATIONS
+---------------------------------- */
+
+async function getRecommendations(
+    movieId
+) {
+
+    status.textContent =
+        "Finding recommendations...";
+
+
+    results.innerHTML = "";
+
+
+    try {
+
+        const response =
+            await fetch(
+                `/api/recommendations/${movieId}`
+            );
+
+
+        const data =
+            await response.json();
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                data.error
+            );
+
+        }
+
+
+        status.textContent =
+            `🎬 ${data.movies.length} Recommended Movies`;
+
+
+        displayMovies(
+            data.movies,
+            true
+        );
+
+
+    } catch (error) {
+
+        status.textContent =
+            error.message;
+
+    }
+
+}
+
+
+
+/* ---------------------------------
+   SEARCH BUTTON
+---------------------------------- */
+
+searchButton.addEventListener(
+    "click",
+    searchMovies
+);
+
+
+
+/* ENTER KEY */
+
+searchInput.addEventListener(
+    "keydown",
+    function(event) {
+
+        if (
+            event.key === "Enter"
+        ) {
+
+            searchMovies();
+
+        }
+
+    }
+);
+
+
+
+/* ---------------------------------
+   RECOMMENDATION BUTTON
+---------------------------------- */
+
+results.addEventListener(
+    "click",
+    function(event) {
+
+        const button =
+            event.target.closest(
+                ".recommend-button"
+            );
+
+
+        if (button) {
+
+            getRecommendations(
+                button.dataset.id
+            );
+
+        }
+
+    }
+);
+
+
+
+/* ---------------------------------
+   HOME BUTTON
+---------------------------------- */
+
+homeButton.addEventListener(
+    "click",
+    function() {
+
+        searchInput.value = "";
+
+        results.innerHTML = "";
+
+        status.textContent =
+            "Search for a movie to get recommendations.";
+
+        searchInput.focus();
+
+    }
+);
+
+
+</script>
+
+
+</body>
+
+</html>
